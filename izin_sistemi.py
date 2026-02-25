@@ -1,5 +1,19 @@
 import streamlit as st
+
+# 1. SAYFA AYARLARI VE HATA ENGELLEYİCİ (EN ÜSTE)
 st.set_page_config(page_title="Pro-İK İzin Portalı", layout="wide")
+
+# Tarayıcının sayfayı çevirip DOM yapısını bozmasını engeller (removeChild hatasının çözümü)
+st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
+st.markdown(
+    """
+    <style>
+        /* Çeviri eklentilerini ve otomatik çeviriyi pasifize etmeye yardımcı olur */
+        .main { unicode-bidi: isolate; }
+    </style>
+    """, 
+    unsafe_allow_html=True
+)
 
 import pandas as pd
 from datetime import date, timedelta
@@ -129,7 +143,7 @@ except:
 st.title("🔐 NCE Bordro Danışmanlık ve Eğitim - İK İzin Paneli")
 
 # ---------------------------------------------------
-# DB BAĞLANTISI (UI YÜKLENDİKTEN SONRA)
+# DB BAĞLANTISI
 # ---------------------------------------------------
 @st.cache_resource
 def get_db():
@@ -175,7 +189,6 @@ CREATE TABLE IF NOT EXISTS talepler (
     onay_notu TEXT
 )
 """)
-
 conn.commit()
 
 # ---------------------------------------------------
@@ -189,14 +202,13 @@ def veri_getir():
 
 df_p = veri_getir()
 
-if "Ad Soyad" in df_p.columns:
+if not df_p.empty and "Ad Soyad" in df_p.columns:
     df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
 
 # ---------------------------------------------------
 # GİRİŞ FORMU
 # ---------------------------------------------------
 if not st.session_state.get("login_oldu", False):
-
     with st.form("giris_formu"):
         isim = st.text_input("Ad Soyad")
         sifre = st.text_input("Şifre", type="password")
@@ -245,16 +257,10 @@ else:
         st.session_state['user'] = None
         st.rerun()
 
-    # ---------------------------------------------------
-    # İZİN TALEP FORMU
-    # ---------------------------------------------------
+    # 1. İZİN TALEP FORMU
     if menu == "İzin Talep Formu":
         st.header("📝 Yeni İzin Talebi Oluştur")
-
-        izin_turleri = [
-            "Yıllık İzin", "Mazeret İzni", "Ücretsiz İzin", "Raporlu İzin",
-            "Doğum İzni", "Babalık İzni", "Evlenme İzni", "Cenaze İzni"
-        ]
+        izin_turleri = ["Yıllık İzin", "Mazeret İzni", "Ücretsiz İzin", "Raporlu İzin", "Doğum İzni", "Babalık İzni", "Evlenme İzni", "Cenaze İzni"]
 
         with st.form("izin_formu"):
             tip = st.selectbox("İzin Türü", izin_turleri)
@@ -269,56 +275,29 @@ else:
                     c.execute("""
                         INSERT INTO talepler (ad_soyad, departman, meslek, tip, baslangic, bitis, neden, durum)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,'Beklemede')
-                    """, (
-                        user["ad_soyad"],
-                        user["departman"],
-                        user["meslek"],
-                        tip,
-                        str(baslangic),
-                        str(bitis),
-                        neden
-                    ))
+                    """, (user["ad_soyad"], user["departman"], user["meslek"], tip, str(baslangic), str(bitis), neden))
                     conn.commit()
 
-                    mail_gonder(
-                        user["onayci_email"],
-                        "Yeni İzin Talebi",
-                        f"{user['ad_soyad']} tarafından yeni bir izin talebi oluşturuldu."
-                    )
-
+                    mail_gonder(user["onayci_email"], "Yeni İzin Talebi", f"{user['ad_soyad']} tarafından yeni bir izin talebi oluşturuldu.")
                     st.success("İzin talebiniz başarıyla gönderildi!")
                     st.rerun()
 
-    # ---------------------------------------------------
-    # İZİNLERİM (DÜZENLE / SİL + PDF)
-    # ---------------------------------------------------
+    # 2. İZİNLERİM
     elif menu == "İzinlerim (Durum Takip)":
         st.header("📑 İzin Taleplerimin Son Durumu")
-
-        kendi_izinlerim = pd.read_sql_query(
-            f"SELECT * FROM talepler WHERE ad_soyad='{user['ad_soyad']}' ORDER BY id DESC",
-            conn
-        )
+        kendi_izinlerim = pd.read_sql_query(f"SELECT * FROM talepler WHERE ad_soyad='{user['ad_soyad']}' ORDER BY id DESC", conn)
 
         if kendi_izinlerim.empty:
             st.info("Henüz bir izin talebiniz bulunmuyor.")
         else:
-            st.subheader("📋 İzin Listem")
-
             for index, row in kendi_izinlerim.iterrows():
-                kutu = st.container()
-                with kutu:
+                with st.container():
                     col1, col2, col3 = st.columns([4, 1, 1])
-
-                    col1.write(
-                        f"**{row['tip']}** — {row['baslangic']} → {row['bitis']}  \n"
-                        f"Durum: **{row['durum']}**"
-                    )
-
+                    col1.write(f"**{row['tip']}** — {row['baslangic']} → {row['bitis']} \n Durum: **{row['durum']}**")
+                    
                     if col2.button("Sil", key=f"sil_{row['id']}"):
                         c.execute("DELETE FROM talepler WHERE id=%s", (row['id'],))
                         conn.commit()
-                        st.success("Talep silindi!")
                         st.rerun()
 
                     if col3.button("Düzenle", key=f"duz_{row['id']}"):
@@ -327,248 +306,101 @@ else:
 
             if "duzenlenecek_id" in st.session_state:
                 duz_id = st.session_state["duzenlenecek_id"]
-
-                duz_row = pd.read_sql_query(
-                    f"SELECT * FROM talepler WHERE id={duz_id}",
-                    conn
-                ).iloc[0]
-
+                duz_row = pd.read_sql_query(f"SELECT * FROM talepler WHERE id={duz_id}", conn).iloc[0]
+                
                 st.markdown("---")
                 st.subheader("✏️ İzin Düzenle")
-
-                izin_turleri = [
-                    "Yıllık İzin", "Mazeret İzni", "Ücretsiz İzin", "Raporlu İzin",
-                    "Doğum İzni", "Babalık İzni", "Evlenme İzni", "Cenaze İzni"
-                ]
-
+                izin_turleri = ["Yıllık İzin", "Mazeret İzni", "Ücretsiz İzin", "Raporlu İzin", "Doğum İzni", "Babalık İzni", "Evlenme İzni", "Cenaze İzni"]
+                
                 yeni_tip = st.selectbox("İzin Türü", izin_turleri, index=izin_turleri.index(duz_row["tip"]))
                 yeni_bas = st.date_input("Başlangıç", date.fromisoformat(duz_row["baslangic"]))
                 yeni_bit = st.date_input("Bitiş", date.fromisoformat(duz_row["bitis"]))
                 yeni_neden = st.text_area("İzin Nedeni", duz_row["neden"])
 
                 if st.button("Kaydet"):
-                    c.execute("""
-                        UPDATE talepler
-                        SET tip=%s, baslangic=%s, bitis=%s, neden=%s
-                        WHERE id=%s
-                    """, (yeni_tip, str(yeni_bas), str(yeni_bit), yeni_neden, duz_id))
+                    c.execute("UPDATE talepler SET tip=%s, baslangic=%s, bitis=%s, neden=%s WHERE id=%s", (yeni_tip, str(yeni_bas), str(yeni_bit), yeni_neden, duz_id))
                     conn.commit()
-
                     del st.session_state["duzenlenecek_id"]
-                    st.success("Talep güncellendi!")
                     st.rerun()
 
             st.markdown("---")
             st.subheader("🖨️ Onaylanan İzinlerin PDF Çıktısı")
-
             for index, row in kendi_izinlerim.iterrows():
                 if row['durum'] == "Onaylandı":
-
-                    yonetici = ""
-                    onay_tarihi = ""
-                    if row["onay_notu"]:
+                    yonetici, onay_tarihi = "", ""
+                    if row["onay_notu"] and "tarafından" in row["onay_notu"]:
                         parts = row["onay_notu"].split()
-                        if "tarafından" in parts:
-                            idx = parts.index("tarafından")
-                            yonetici = " ".join(parts[:idx])
-                            if len(parts) > idx + 1:
-                                onay_tarihi = parts[idx + 1]
+                        idx = parts.index("tarafından")
+                        yonetici = " ".join(parts[:idx])
+                        onay_tarihi = parts[idx + 1] if len(parts) > idx + 1 else ""
 
-                    veri = {
-                        "ad_soyad": row["ad_soyad"],
-                        "sicil": user["sicil"],
-                        "departman": row["departman"],
-                        "meslek": row["meslek"],
-                        "telefon": user["cep_telefonu"],
-                        "email": user["email"],
-                        "tip": row["tip"],
-                        "baslangic": row["baslangic"],
-                        "bitis": row["bitis"],
-                        "neden": row["neden"],
-                        "durum": row["durum"],
-                        "yonetici": yonetici,
-                        "onay_tarihi": onay_tarihi
-                    }
+                    pdf_bytes = pdf_olustur({
+                        "ad_soyad": row["ad_soyad"], "sicil": user["sicil"], "departman": row["departman"],
+                        "meslek": row["meslek"], "telefon": user["cep_telefonu"], "email": user["email"],
+                        "tip": row["tip"], "baslangic": row["baslangic"], "bitis": row["bitis"],
+                        "neden": row["neden"], "durum": row["durum"], "yonetici": yonetici, "onay_tarihi": onay_tarihi
+                    })
+                    st.download_button(label=f"📥 {row['baslangic']} PDF İndir", data=pdf_bytes, file_name=f"izin_{row['id']}.pdf", mime="application/pdf")
 
-                    pdf_bytes = pdf_olustur(veri)
-
-                    st.download_button(
-                        label=f"📥 {row['baslangic']} - {row['tip']} PDF İndir",
-                        data=pdf_bytes,
-                        file_name=f"izin_formu_{row['id']}.pdf",
-                        mime="application/pdf"
-                    )
-
-    # ---------------------------------------------------
-    # YÖNETİCİ ONAY EKRANI
-    # ---------------------------------------------------
+    # 3. YÖNETİCİ ONAY
     elif menu == "Onay Bekleyenler (Yönetici)":
-        st.header("⏳ Onayınızı Bekleyen Personel Talepleri")
+        st.header("⏳ Onay Bekleyen Talepler")
         df_p = veri_getir()
-
-        if "Ad Soyad" in df_p.columns:
+        if not df_p.empty and "Ad Soyad" in df_p.columns:
             df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
-
+            
         bagli_personeller = df_p[df_p['onayci_email'] == user['email']]['ad_soyad'].tolist()
-
         bekleyenler = pd.read_sql_query("SELECT * FROM talepler WHERE durum='Beklemede'", conn)
         filtreli = bekleyenler[bekleyenler['ad_soyad'].isin(bagli_personeller)]
 
         if filtreli.empty:
-            st.info("Şu an onayınızı bekleyen bir talep bulunmuyor.")
+            st.info("Onay bekleyen talep yok.")
         else:
             for index, row in filtreli.iterrows():
                 with st.expander(f"📌 {row['ad_soyad']} - {row['tip']}"):
-                    st.write(f"**Tarih:** {row['baslangic']} / {row['bitis']}")
-                    st.write(f"**Açıklama:** {row['neden']}")
-
+                    st.write(f"Tarih: {row['baslangic']} / {row['bitis']} \n Nedne: {row['neden']}")
                     o_col, r_col = st.columns(2)
-
                     if o_col.button("Onayla", key=f"on_{row['id']}"):
                         imza = f"{user['ad_soyad']} ({user['meslek']}) tarafından {date.today()} tarihinde onaylandı."
-                        c.execute(
-                            "UPDATE talepler SET durum='Onaylandı', onay_notu=%s WHERE id=%s",
-                            (imza, row['id'])
-                        )
+                        c.execute("UPDATE talepler SET durum='Onaylandı', onay_notu=%s WHERE id=%s", (imza, row['id']))
                         conn.commit()
-
-                        p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
-                        mail_gonder(p_email, "İzniniz Onaylandı", f"Sayın {row['ad_soyad']}, izniniz onaylanmıştır.")
-
                         st.rerun()
-
-                                        if r_col.button("Reddet", key=f"red_{row['id']}"):
+                    if r_col.button("Reddet", key=f"red_{row['id']}"):
                         c.execute("UPDATE talepler SET durum='Reddedildi' WHERE id=%s", (row['id'],))
                         conn.commit()
-
-                        p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
-                        mail_gonder(p_email, "İzniniz Reddedildi", f"Sayın {row['ad_soyad']}, izniniz reddedilmiştir.")
-
                         st.rerun()
 
-    # ---------------------------------------------------
-    # İK GENEL TAKİP
-    # ---------------------------------------------------
+    # 4. İK TÜM TALEPLER
     elif menu == "Tüm Talepler (İK)":
-        st.header("📊 Şirket Geneli Tüm İzin Hareketleri")
-
+        st.header("📊 Tüm İzin Hareketleri")
         df_all = pd.read_sql_query("SELECT * FROM talepler", conn)
         st.dataframe(df_all, use_container_width=True)
+        st.download_button(label="📥 Excel İndir", data=excel_indir(df_all), file_name="tum_talepler.xlsx")
 
-        st.download_button(
-            label="📥 Excel Olarak İndir",
-            data=excel_indir(df_all),
-            file_name="tum_talepler.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    # ---------------------------------------------------
-    # PERSONEL YÖNETİMİ (İK)
-    # ---------------------------------------------------
+    # 5. PERSONEL YÖNETİMİ
     elif menu == "Personel Yönetimi (İK)":
-        st.header("👥 Personel Yönetimi (İK)")
-
+        st.header("👥 Personel Yönetimi")
         df_p = veri_getir()
-        if "Ad Soyad" in df_p.columns:
+        if not df_p.empty and "Ad Soyad" in df_p.columns:
             df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
-
-        st.subheader("Mevcut Personel Listesi")
-        if df_p.empty:
-            st.info("Sistemde henüz personel kaydı yok.")
-        else:
-            st.dataframe(df_p, use_container_width=True)
-
-        st.markdown("---")
-        st.subheader("Yeni Personel Ekle")
-
+        
+        st.dataframe(df_p, use_container_width=True)
+        
         with st.form("personel_ekle"):
-            col1, col2 = st.columns(2)
-            sicil = col1.text_input("Sicil")
-            ad_soyad = col2.text_input("Ad Soyad")
-
-            col3, col4 = st.columns(2)
-            sifre = col3.text_input("Şifre")
-            rol_sec = col4.selectbox("Rol", ["Personel", "Yönetici", "İK"])
-
+            c1, c2 = st.columns(2)
+            sicil = c1.text_input("Sicil")
+            ad_soyad = c2.text_input("Ad Soyad")
+            c3, c4 = st.columns(2)
+            sifre = c3.text_input("Şifre")
+            rol_sec = c4.selectbox("Rol", ["Personel", "Yönetici", "İK"])
             meslek = st.text_input("Meslek")
-            departman = st.text_input("Departman")
-            email = st.text_input("Email")
-            onayci_email = st.text_input("Onaycı Email")
-            cep_tel = st.text_input("Cep Telefonu")
+            dep = st.text_input("Departman")
+            mail = st.text_input("Email")
+            onay_mail = st.text_input("Onaycı Email")
+            tel = st.text_input("Cep Telefonu")
 
             if st.form_submit_button("Kaydet"):
-                c.execute(
-                    """
-                    INSERT INTO personellers (sicil, ad_soyad, sifre, meslek, departman,
-                                              email, onayci_email, rol, cep_telefonu)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                    """,
-                    (sicil, ad_soyad, sifre, meslek, departman, email, onayci_email, rol_sec, cep_tel)
-                )
+                c.execute("""INSERT INTO personellers (sicil, ad_soyad, sifre, meslek, departman, email, onayci_email, rol, cep_telefonu)
+                             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""", (sicil, ad_soyad, sifre, meslek, dep, mail, onay_mail, rol_sec, tel))
                 conn.commit()
-                st.success("Personel başarıyla eklendi!")
                 st.rerun()
-
-        st.markdown("---")
-        st.subheader("Personel Sil")
-
-        if df_p.empty:
-            st.info("Silinecek personel bulunmuyor.")
-        else:
-            silinecek = st.selectbox("Silinecek Personeli Seçin", df_p["ad_soyad"].tolist())
-
-            if st.button("❌ Personeli Sil"):
-                c.execute("DELETE FROM personellers WHERE ad_soyad=%s", (silinecek,))
-                conn.commit()
-                st.success(f"{silinecek} başarıyla silindi!")
-                st.rerun()
-
-        st.markdown("---")
-        st.subheader("Excel'den Personel İçe Aktar")
-
-        st.info("Excel formatı şu sütunları içermelidir: Sicil, Ad Soyad, Sifre, Meslek, Departman, Email, Onayci_Email, Rol, Cep_Telefonu")
-
-        uploaded_file = st.file_uploader("Personel Excel Dosyası Yükle", type=["xlsx"])
-
-        if uploaded_file is not None:
-            try:
-                df_import = pd.read_excel(uploaded_file)
-                beklenen_kolonlar = ["Sicil", "Ad Soyad", "Sifre", "Meslek", "Departman", "Email", "Onayci_Email", "Rol", "Cep_Telefonu"]
-
-                if not all(k in df_import.columns for k in beklenen_kolonlar):
-                    st.error("Excel formatı hatalı. Lütfen belirtilen sütun adlarını birebir kullanın.")
-                else:
-                    eklenen = 0
-
-                    for _, r in df_import.iterrows():
-
-                        c.execute("SELECT COUNT(*) FROM personellers WHERE sicil=%s", (str(r["Sicil"]),))
-                        var_mi = c.fetchone()[0]
-
-                        if var_mi == 0:
-                            c.execute(
-                                """
-                                INSERT INTO personellers (sicil, ad_soyad, sifre, meslek, departman,
-                                                          email, onayci_email, rol, cep_telefonu)
-                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                                """,
-                                (
-                                    str(r["Sicil"]),
-                                    str(r["Ad Soyad"]),
-                                    str(r["Sifre"]),
-                                    str(r["Meslek"]),
-                                    str(r["Departman"]),
-                                    str(r["Email"]),
-                                    str(r["Onayci_Email"]),
-                                    str(r["Rol"]),
-                                    str(r["Cep_Telefonu"])
-                                )
-                            )
-                            eklenen += 1
-
-                    conn.commit()
-                    st.success(f"{eklenen} personel başarıyla içe aktarıldı.")
-                    st.rerun()
-
-            except Exception as e:
-                st.error(f"Excel içe aktarılırken hata: {e}")
