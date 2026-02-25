@@ -179,10 +179,12 @@ if 'login_oldu' not in st.session_state:
 df_p = veri_getir()
 
 if not st.session_state['login_oldu']:
-    st.image("assets/logo.png", width=180)
-    st.title("🔐 NCE Bordro Danışmanlık ve Eğitim - İK İzin Paneli")
+    try:
+        st.image("assets/logo.png", width=180)
+    except:
+        pass
 
-df_p = veri_getir()
+    st.title("🔐 NCE Bordro Danışmanlık ve Eğitim - İK İzin Paneli")
 
 if "Ad Soyad" in df_p.columns:
     df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
