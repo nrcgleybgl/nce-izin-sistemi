@@ -1,4 +1,6 @@
 import streamlit as st
+st.set_page_config(page_title="Pro-İK İzin Portalı", layout="wide")
+
 import pandas as pd
 from datetime import date, timedelta
 import psycopg2
