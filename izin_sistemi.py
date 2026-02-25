@@ -117,7 +117,7 @@ def mail_gonder(alici, konu, icerik):
 conn = psycopg2.connect(
     dbname='neondb',
     user='neondb_owner',
-    password='npg_QHWTc95MVzPg',
+    password='npg_NReEM4mL2Jbl',
     host='ep-nameless-morning-aimuiz3g.c-4.us-east-1.aws.neon.tech',
     port='5432'
 )
@@ -568,3 +568,4 @@ else:
 
             except Exception as e:
                 st.error(f"Excel içe aktarılırken hata: {e}")
+
