@@ -116,22 +116,26 @@ def mail_gonder(alici, konu, icerik):
     except Exception as e:
         print("Mail gönderilemedi:", e)
 
-# ---------------------------------------------------
-# POSTGRESQL BAĞLANTISI (NEON) - STREAMLIT CLOUD
-# ---------------------------------------------------
+import psycopg2
+import os
+import streamlit as st
+
+# Fonksiyon
 def get_db():
     return psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
         host=os.getenv("DB_HOST"),
-        port="5432",
-        sslmode="require",
-        options="-c channel_binding=require"
+        sslmode="require"
     )
 
-conn = get_db()
-c = conn.cursor()
+# Bağlantıyı oluşturma
+try:
+    conn = get_db()
+    c = conn.cursor()
+except Exception as e:
+    st.error(f"Veritabanına bağlanılamadı: {e}")
 
 # ---------------------------------------------------
 # TABLOLARI OLUŞTUR (PostgreSQL)
