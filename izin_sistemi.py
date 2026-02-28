@@ -266,6 +266,10 @@ else:
             neden = st.text_area("İzin Nedeni")
 
             if st.form_submit_button("Talebi Gönder"):
+                if (bitis - baslangic).days > 365:
+                    st.error("İzin süresi 1 yıldan uzun olamaz.")
+                    st.stop()
+
                 if bitis < baslangic:
                     st.error("Bitiş tarihi başlangıç tarihinden önce olamaz.")
                 else:
@@ -406,7 +410,7 @@ else:
                     st.download_button(
                         label=f"📥 {row['baslangic']} - {row['tip']} PDF İndir",
                         data=pdf_bytes,
-                        file_name=f"izin_formu_{row['id']}.pdf",
+                        file_name=f"{user['ad_soyad']}_{row['tip'].replace(' ', '_')}_{user['sicil']}.pdf",
                         mime="application/pdf"
                     )
     # ---------------------------------------------------
