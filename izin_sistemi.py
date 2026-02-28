@@ -320,43 +320,70 @@ else:
             st.success("İzin talebiniz başarıyla gönderildi!")
             st.rerun()
 
-    # ---------------------------------------------------
-    # İZİNLERİM (DÜZENLE / SİL + PDF)
-    # ---------------------------------------------------
-    elif menu == "İzinlerim (Durum Takip)":
-        st.header("📑 İzin Taleplerimin Son Durumu")
+# ---------------------------------------------------
+# ANA PANEL
+# ---------------------------------------------------
+else:
+    user = st.session_state['user']
+    rol = user.get('rol', 'Personel')
 
-        kendi_izinlerim = pd.read_sql_query(
-            f"SELECT * FROM talepler WHERE ad_soyad='{user['ad_soyad']}' ORDER BY id DESC",
-            conn
-        )
+    ana_menu = ["İzin Talep Formu", "İzinlerim (Durum Takip)"]
+    if rol in ["Yönetici", "İK"]:
+        ana_menu.append("Onay Bekleyenler (Yönetici)")
+    if rol == "İK":
+        ana_menu.append("Tüm Talepler (İK)")
+        ana_menu.append("Personel Yönetimi (İK)")
 
-        if kendi_izinlerim.empty:
-            st.info("Henüz bir izin talebiniz bulunmuyor.")
-        else:
-            st.subheader("📋 İzin Listem")
+    st.sidebar.image("assets/logo.png", width=120)
+    st.sidebar.title(f"👤 {user['ad_soyad']}")
+    st.sidebar.write(f"**Rol:** {rol}")
+    st.sidebar.write(f"**Departman:** {user['departman']}")
 
-            for index, row in kendi_izinlerim.iterrows():
-                kutu = st.container()
-                with kutu:
-                    col1, col2, col3 = st.columns([4, 1, 1])
+    menu = st.sidebar.radio("İşlem Menüsü", ana_menu)
 
-                    col1.write(
-                        f"**{row['tip']}** — {tr_tarih(row['baslangic'])} → {tr_tarih(row['bitis'])}  \n"
-                        f"Durum: **{row['durum']}**"
-                    )
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🔒 Güvenli Çıkış"):
+        st.session_state['login_oldu'] = False
+        st.session_state['user'] = None
+        st.rerun()
 
-                    # ❌ SİL BUTONU
-                    if col2.button("Sil", key=f"sil_{row['id']}"):
-                        c.execute("DELETE FROM talepler WHERE id=%s", (row['id'],))
-                        conn.commit()
-                        st.success("Talep silindi!")
-                        st.rerun()
+# ---------------------------------------------------
+# İZİNLERİM (DÜZENLE / SİL + PDF)
+# ---------------------------------------------------
+elif menu == "İzinlerim (Durum Takip)":
+    st.header("📑 İzin Taleplerimin Son Durumu")
 
-                    # ✏️ DÜZENLE BUTONU
-                    if col3.button("Düzenle", key=f"duz_{row['id']}"):
-                        st.session_state["duzenlenecek_id"] = row["id"]
-                        st.rerun()
+    kendi_izinlerim = pd.read_sql_query(
+        f"SELECT * FROM talepler WHERE ad_soyad='{user['ad_soyad']}' ORDER BY id DESC",
+        conn
+    )
+
+    if kendi_izinlerim.empty:
+        st.info("Henüz bir izin talebiniz bulunmuyor.")
+    else:
+        st.subheader("📋 İzin Listem")
+
+        for index, row in kendi_izinlerim.iterrows():
+            kutu = st.container()
+            with kutu:
+                col1, col2, col3 = st.columns([4, 1, 1])
+
+                col1.write(
+                    f"**{row['tip']}** — {tr_tarih(row['baslangic'])} → {tr_tarih(row['bitis'])}  \n"
+                    f"Durum: **{row['durum']}**"
+                )
+
+                # ❌ SİL BUTONU
+                if col2.button("Sil", key=f"sil_{row['id']}"):
+                    c.execute("DELETE FROM talepler WHERE id=%s", (row['id'],))
+                    conn.commit()
+                    st.success("Talep silindi!")
+                    st.rerun()
+
+                # ✏️ DÜZENLE BUTONU
+                if col3.button("Düzenle", key=f"duz_{row['id']}"):
+                    st.session_state["duzenlenecek_id"] = row["id"]
+                    st.rerun()
 
             # ---------------------------------------------------
             # ✏️ DÜZENLEME FORMU
@@ -435,8 +462,10 @@ else:
                         label=f"📥 {row['baslangic']} - {row['tip']} PDF İndir",
                         data=pdf_bytes,
                         file_name=f"{user['ad_soyad']}_{row['tip'].replace(' ', '_')}_{user['sicil']}.pdf",
-                        mime="application/pdf"
+                        mime="application/pdf",
+                        key=f"pdf_{row['id']}"
                     )
+
     # ---------------------------------------------------
     # YÖNETİCİ ONAY EKRANI
     # ---------------------------------------------------
