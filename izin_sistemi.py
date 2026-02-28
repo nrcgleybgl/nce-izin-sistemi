@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
+from datetime import date, datetime
 import psycopg2
 import psycopg2.extras
 import smtplib
@@ -8,19 +8,19 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from io import BytesIO
 from fpdf import FPDF
-
 from dotenv import load_dotenv
 import os
 
-from datetime import datetime
+load_dotenv()
 
+# ---------------------------------------------------
+# TARİH FORMAT FONKSİYONU
+# ---------------------------------------------------
 def tr_tarih(t):
     try:
         return datetime.strptime(t, "%Y-%m-%d").strftime("%d/%m/%Y")
     except:
         return t
-
-load_dotenv()
 
 # ---------------------------------------------------
 # EXCEL İNDİRME FONKSİYONU
@@ -81,8 +81,8 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
 
     kutu_baslik("IZIN BILGILERI")
     satir("Izin Turu", veri["tip"])
-    satir("Baslangic Tarihi", veri["baslangic"])
-    satir("Bitis Tarihi", veri["bitis"])
+    satir("Baslangic Tarihi", tr_tarih(veri["baslangic"]))
+    satir("Bitis Tarihi", tr_tarih(veri["bitis"]))
 
     pdf.set_font("Arial", size=11)
     pdf.cell(50, 8, fix("Izin Nedeni:"), border=1)
@@ -124,11 +124,9 @@ def mail_gonder(alici, konu, icerik):
     except Exception as e:
         print("Mail gönderilemedi:", e)
 
-import psycopg2
-import os
-import streamlit as st
-
-# Fonksiyon
+# ---------------------------------------------------
+# VERİTABANI BAĞLANTISI
+# ---------------------------------------------------
 def get_db():
     return psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
@@ -138,7 +136,6 @@ def get_db():
         sslmode="require"
     )
 
-# Bağlantıyı oluşturma
 try:
     conn = get_db()
     c = conn.cursor()
@@ -257,45 +254,46 @@ else:
         st.rerun()
 
     # ---------------------------------------------------
-# İZİN TALEP FORMU
-# ---------------------------------------------------
-if menu == "İzin Talep Formu":
-    st.header("📝 Yeni İzin Talebi Oluştur")
+    # İZİN TALEP FORMU
+    # ---------------------------------------------------
+    if menu == "İzin Talep Formu":
+        st.header("📝 Yeni İzin Talebi Oluştur")
 
-    izin_turleri = [
-        "Yıllık İzin", "Mazeret İzni", "Ücretsiz İzin", "Raporlu İzin",
-        "Doğum İzni", "Babalık İzni", "Evlenme İzni", "Cenaze İzni"
-    ]
+        izin_turleri = [
+            "Yıllık İzin", "Mazeret İzni", "Ücretsiz İzin", "Raporlu İzin",
+            "Doğum İzni", "Babalık İzni", "Evlenme İzni", "Cenaze İzni"
+        ]
 
-    with st.form("izin_formu"):
-        tip = st.selectbox("İzin Türü", izin_turleri)
-        baslangic = st.date_input("Başlangıç Tarihi", date.today())
-        bitis = st.date_input("Bitiş Tarihi", date.today())
-        neden = st.text_area("İzin Nedeni")
+        with st.form("izin_formu"):
+            tip = st.selectbox("İzin Türü", izin_turleri)
+            baslangic = st.date_input("Başlangıç Tarihi", date.today())
+            bitis = st.date_input("Bitiş Tarihi", date.today())
+            neden = st.text_area("İzin Nedeni")
 
-        if st.form_submit_button("Talebi Gönder"):
+            gonder = st.form_submit_button("Talebi Gönder")
+
+        if gonder:
 
             # 🔒 1 YILLIK SINIR
             if (bitis - baslangic).days > 365:
                 st.error("İzin süresi 1 yıldan uzun olamaz.")
-                return
+                st.stop()
 
             # 🔒 TARİH KONTROLÜ
             if bitis < baslangic:
                 st.error("Bitiş tarihi başlangıç tarihinden önce olamaz.")
-                return
+                st.stop()
 
             # 🔒 MÜKERRER İZİN KONTROLÜ
             c.execute("""
                 SELECT COUNT(*) FROM talepler
                 WHERE ad_soyad=%s AND baslangic=%s AND bitis=%s
             """, (user["ad_soyad"], str(baslangic), str(bitis)))
-
             var_mi = c.fetchone()[0]
 
             if var_mi > 0:
                 st.error("Bu tarihlerde zaten bir izin talebiniz var.")
-                return
+                st.stop()
 
             # 🔵 İZİN KAYDI
             c.execute("""
@@ -323,42 +321,42 @@ if menu == "İzin Talep Formu":
             st.rerun()
 
     # ---------------------------------------------------
-# İZİNLERİM (DÜZENLE / SİL + PDF)
-# ---------------------------------------------------
-elif menu == "İzinlerim (Durum Takip)":
-    st.header("📑 İzin Taleplerimin Son Durumu")
+    # İZİNLERİM (DÜZENLE / SİL + PDF)
+    # ---------------------------------------------------
+    elif menu == "İzinlerim (Durum Takip)":
+        st.header("📑 İzin Taleplerimin Son Durumu")
 
-    kendi_izinlerim = pd.read_sql_query(
-        f"SELECT * FROM talepler WHERE ad_soyad='{user['ad_soyad']}' ORDER BY id DESC",
-        conn
-    )
+        kendi_izinlerim = pd.read_sql_query(
+            f"SELECT * FROM talepler WHERE ad_soyad='{user['ad_soyad']}' ORDER BY id DESC",
+            conn
+        )
 
-    if kendi_izinlerim.empty:
-        st.info("Henüz bir izin talebiniz bulunmuyor.")
-    else:
-        st.subheader("📋 İzin Listem")
+        if kendi_izinlerim.empty:
+            st.info("Henüz bir izin talebiniz bulunmuyor.")
+        else:
+            st.subheader("📋 İzin Listem")
 
-        for index, row in kendi_izinlerim.iterrows():
-            kutu = st.container()
-            with kutu:
-                col1, col2, col3 = st.columns([4, 1, 1])
+            for index, row in kendi_izinlerim.iterrows():
+                kutu = st.container()
+                with kutu:
+                    col1, col2, col3 = st.columns([4, 1, 1])
 
-                col1.write(
-                    f"**{row['tip']}** — {tr_tarih(row['baslangic'])} → {tr_tarih(row['bitis'])}  \n"
-                    f"Durum: **{row['durum']}**"
-                )
+                    col1.write(
+                        f"**{row['tip']}** — {tr_tarih(row['baslangic'])} → {tr_tarih(row['bitis'])}  \n"
+                        f"Durum: **{row['durum']}**"
+                    )
 
-                # ❌ SİL BUTONU
-                if col2.button("Sil", key=f"sil_{row['id']}"):
-                    c.execute("DELETE FROM talepler WHERE id=%s", (row['id'],))
-                    conn.commit()
-                    st.success("Talep silindi!")
-                    st.rerun()
+                    # ❌ SİL BUTONU
+                    if col2.button("Sil", key=f"sil_{row['id']}"):
+                        c.execute("DELETE FROM talepler WHERE id=%s", (row['id'],))
+                        conn.commit()
+                        st.success("Talep silindi!")
+                        st.rerun()
 
-                # ✏️ DÜZENLE BUTONU
-                if col3.button("Düzenle", key=f"duz_{row['id']}"):
-                    st.session_state["duzenlenecek_id"] = row["id"]
-                    st.rerun()
+                    # ✏️ DÜZENLE BUTONU
+                    if col3.button("Düzenle", key=f"duz_{row['id']}"):
+                        st.session_state["duzenlenecek_id"] = row["id"]
+                        st.rerun()
 
             # ---------------------------------------------------
             # ✏️ DÜZENLEME FORMU
@@ -397,137 +395,136 @@ elif menu == "İzinlerim (Durum Takip)":
                     st.rerun()
 
             # ---------------------------------------------------
-# 🖨️ ONAYLANAN İZİNLERİN PDF ÇIKTISI
-# ---------------------------------------------------
-st.markdown("---")
-st.subheader("🖨️ Onaylanan İzinlerin PDF Çıktısı")
+            # 🖨️ ONAYLANAN İZİNLERİN PDF ÇIKTISI
+            # ---------------------------------------------------
+            st.markdown("---")
+            st.subheader("🖨️ Onaylanan İzinlerin PDF Çıktısı")
 
-for index, row in kendi_izinlerim.iterrows():
-    if row['durum'] == "Onaylandı":
+            for index, row in kendi_izinlerim.iterrows():
+                if row['durum'] == "Onaylandı":
 
-        yonetici = ""
-        onay_tarihi = ""
-        if row["onay_notu"]:
-            parts = row["onay_notu"].split()
-            if "tarafından" in parts:
-                idx = parts.index("tarafından")
-                yonetici = " ".join(parts[:idx])
-                if len(parts) > idx + 1:
-                    onay_tarihi = parts[idx + 1]
+                    yonetici = ""
+                    onay_tarihi = ""
+                    if row["onay_notu"]:
+                        parts = row["onay_notu"].split()
+                        if "tarafından" in parts:
+                            idx = parts.index("tarafından")
+                            yonetici = " ".join(parts[:idx])
+                            if len(parts) > idx + 1:
+                                onay_tarihi = parts[idx + 1]
 
-        veri = {
-            "ad_soyad": row["ad_soyad"],
-            "sicil": user["sicil"],
-            "departman": row["departman"],
-            "meslek": row["meslek"],
-            "telefon": user["cep_telefonu"],
-            "email": user["email"],
-            "tip": row["tip"],
-            "baslangic": row["baslangic"],
-            "bitis": row["bitis"],
-            "neden": row["neden"],
-            "durum": row["durum"],
-            "yonetici": yonetici,
-            "onay_tarihi": onay_tarihi
-        }
+                    veri = {
+                        "ad_soyad": row["ad_soyad"],
+                        "sicil": user["sicil"],
+                        "departman": row["departman"],
+                        "meslek": row["meslek"],
+                        "telefon": user["cep_telefonu"],
+                        "email": user["email"],
+                        "tip": row["tip"],
+                        "baslangic": row["baslangic"],
+                        "bitis": row["bitis"],
+                        "neden": row["neden"],
+                        "durum": row["durum"],
+                        "yonetici": yonetici,
+                        "onay_tarihi": onay_tarihi
+                    }
 
-        pdf_bytes = pdf_olustur(veri)
+                    pdf_bytes = pdf_olustur(veri)
+
+                    st.download_button(
+                        label=f"📥 {row['baslangic']} - {row['tip']} PDF İndir",
+                        data=pdf_bytes,
+                        file_name=f"{user['ad_soyad']}_{row['tip'].replace(' ', '_')}_{user['sicil']}.pdf",
+                        mime="application/pdf"
+                    )
+    # ---------------------------------------------------
+    # YÖNETİCİ ONAY EKRANI
+    # ---------------------------------------------------
+    elif menu == "Onay Bekleyenler (Yönetici)":
+        st.header("⏳ Onayınızı Bekleyen Personel Talepleri")
+        df_p = veri_getir()
+
+        if "Ad Soyad" in df_p.columns:
+            df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
+
+        bagli_personeller = df_p[df_p['onayci_email'] == user['email']]['ad_soyad'].tolist()
+
+        bekleyenler = pd.read_sql_query("SELECT * FROM talepler WHERE durum='Beklemede'", conn)
+        filtreli = bekleyenler[bekleyenler['ad_soyad'].isin(bagli_personeller)]
+
+        if filtreli.empty:
+            st.info("Şu an onayınızı bekleyen bir talep bulunmuyor.")
+        else:
+            for index, row in filtreli.iterrows():
+                with st.expander(f"📌 {row['ad_soyad']} - {row['tip']}"):
+                    st.write(f"**Tarih:** {row['baslangic']} / {row['bitis']}")
+                    st.write(f"**Açıklama:** {row['neden']}")
+
+                    o_col, r_col = st.columns(2)
+
+                    if o_col.button("Onayla", key=f"on_{row['id']}"):
+                        imza = f"{user['ad_soyad']} ({user['meslek']}) tarafından {date.today()} tarihinde onaylandı."
+                        c.execute(
+                            "UPDATE talepler SET durum='Onaylandı', onay_notu=%s WHERE id=%s",
+                            (imza, row['id'])
+                        )
+                        conn.commit()
+
+                        p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
+                        mail_gonder(p_email, "İzniniz Onaylandı", f"Sayın {row['ad_soyad']}, izniniz onaylanmıştır.")
+
+                        st.rerun()
+
+                    if r_col.button("Reddet", key=f"red_{row['id']}"):
+                        c.execute("UPDATE talepler SET durum='Reddedildi' WHERE id=%s", (row['id'],))
+                        conn.commit()
+
+                        p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
+                        mail_gonder(p_email, "İzniniz Reddedildi", f"Sayın {row['ad_soyad']}, izniniz reddedilmiştir.")
+
+                        st.rerun()
+
+    # ---------------------------------------------------
+    # İK GENEL TAKİP
+    # ---------------------------------------------------
+    elif menu == "Tüm Talepler (İK)":
+        st.header("📊 Şirket Geneli Tüm İzin Hareketleri")
+
+        df_all = pd.read_sql_query("SELECT * FROM talepler", conn)
+        st.dataframe(df_all, use_container_width=True)
 
         st.download_button(
-            label=f"📥 {row['baslangic']} - {row['tip']} PDF İndir",
-            data=pdf_bytes,
-            file_name=f"{user['ad_soyad']}_{row['tip'].replace(' ', '_')}_{user['sicil']}.pdf",
-            mime="application/pdf"
+            label="📥 Excel Olarak İndir",
+            data=excel_indir(df_all),
+            file_name="tum_talepler.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-# ---------------------------------------------------
-# YÖNETİCİ ONAY EKRANI
-# ---------------------------------------------------
-elif menu == "Onay Bekleyenler (Yönetici)":
-    st.header("⏳ Onayınızı Bekleyen Personel Talepleri")
-    df_p = veri_getir()
+        # ---------------------------------------------------
+        # TEK TEK SİLME
+        # ---------------------------------------------------
+        st.markdown("---")
+        st.subheader("Tekil İzin Sil")
 
-    if "Ad Soyad" in df_p.columns:
-        df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
+        sil_id = st.number_input("Silinecek izin ID", min_value=1, step=1)
 
-    bagli_personeller = df_p[df_p['onayci_email'] == user['email']]['ad_soyad'].tolist()
+        if st.button("❌ Bu İzni Sil"):
+            c.execute("DELETE FROM talepler WHERE id=%s", (sil_id,))
+            conn.commit()
+            st.success(f"ID {sil_id} olan izin başarıyla silindi!")
+            st.rerun()
 
-    bekleyenler = pd.read_sql_query("SELECT * FROM talepler WHERE durum='Beklemede'", conn)
-    filtreli = bekleyenler[bekleyenler['ad_soyad'].isin(bagli_personeller)]
+        # ---------------------------------------------------
+        # TOPLU SİLME
+        # ---------------------------------------------------
+        st.markdown("---")
+        st.subheader("Toplu Silme İşlemleri")
 
-    if filtreli.empty:
-        st.info("Şu an onayınızı bekleyen bir talep bulunmuyor.")
-    else:
-        for index, row in filtreli.iterrows():
-            with st.expander(f"📌 {row['ad_soyad']} - {row['tip']}"):
-                st.write(f"**Tarih:** {row['baslangic']} / {row['bitis']}")
-                st.write(f"**Açıklama:** {row['neden']}")
-
-                o_col, r_col = st.columns(2)
-
-                if o_col.button("Onayla", key=f"on_{row['id']}"):
-                    imza = f"{user['ad_soyad']} ({user['meslek']}) tarafından {date.today()} tarihinde onaylandı."
-                    c.execute(
-                        "UPDATE talepler SET durum='Onaylandı', onay_notu=%s WHERE id=%s",
-                        (imza, row['id'])
-                    )
-                    conn.commit()
-
-                    p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
-                    mail_gonder(p_email, "İzniniz Onaylandı", f"Sayın {row['ad_soyad']}, izniniz onaylanmıştır.")
-
-                    st.rerun()
-
-                if r_col.button("Reddet", key=f"red_{row['id']}"):
-                    c.execute("UPDATE talepler SET durum='Reddedildi' WHERE id=%s", (row['id'],))
-                    conn.commit()
-
-                    p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
-                    mail_gonder(p_email, "İzniniz Reddedildi", f"Sayın {row['ad_soyad']}, izniniz reddedilmiştir.")
-
-                    st.rerun()
-
-# ---------------------------------------------------
-# İK GENEL TAKİP
-# ---------------------------------------------------
-elif menu == "Tüm Talepler (İK)":
-    st.header("📊 Şirket Geneli Tüm İzin Hareketleri")
-
-    df_all = pd.read_sql_query("SELECT * FROM talepler", conn)
-    st.dataframe(df_all, use_container_width=True)
-
-    st.download_button(
-        label="📥 Excel Olarak İndir",
-        data=excel_indir(df_all),
-        file_name="tum_talepler.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-    # ---------------------------------------------------
-    # TEK TEK SİLME
-    # ---------------------------------------------------
-    st.markdown("---")
-    st.subheader("Tekil İzin Sil")
-
-    sil_id = st.number_input("Silinecek izin ID", min_value=1, step=1)
-
-    if st.button("❌ Bu İzni Sil"):
-        c.execute("DELETE FROM talepler WHERE id=%s", (sil_id,))
-        conn.commit()
-        st.success(f"ID {sil_id} olan izin başarıyla silindi!")
-        st.rerun()
-
-    # ---------------------------------------------------
-    # TOPLU SİLME
-    # ---------------------------------------------------
-    st.markdown("---")
-    st.subheader("Toplu Silme İşlemleri")
-
-    if st.button("⚠️ Tüm İzin Taleplerini Sil"):
-        c.execute("DELETE FROM talepler")
-        conn.commit()
-        st.success("Tüm izin talepleri başarıyla silindi!")
-        st.rerun()
+        if st.button("⚠️ Tüm İzin Taleplerini Sil"):
+            c.execute("DELETE FROM talepler")
+            conn.commit()
+            st.success("Tüm izin talepleri başarıyla silindi!")
+            st.rerun()
 
     # ---------------------------------------------------
     # PERSONEL YÖNETİMİ (İK)
