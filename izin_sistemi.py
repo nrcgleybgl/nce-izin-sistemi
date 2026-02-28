@@ -410,52 +410,75 @@ else:
                         mime="application/pdf"
                     )
     # ---------------------------------------------------
-    # YÖNETİCİ ONAY EKRANI
-    # ---------------------------------------------------
-    elif menu == "Onay Bekleyenler (Yönetici)":
-        st.header("⏳ Onayınızı Bekleyen Personel Talepleri")
-        df_p = veri_getir()
+# YÖNETİCİ ONAY EKRANI
+# ---------------------------------------------------
+elif menu == "Onay Bekleyenler (Yönetici)":
+    st.header("⏳ Onayınızı Bekleyen Personel Talepleri")
+    
+    # Tüm personel verilerini getir
+    df_p = veri_getir()
 
-        if "Ad Soyad" in df_p.columns:
-            df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
+    # Sütun isimlerini standartlaştır
+    if "Ad Soyad" in df_p.columns:
+        df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
 
-        bagli_personeller = df_p[df_p['onayci_email'] == user['email']]['ad_soyad'].tolist()
+    # Kullanıcının bağlı olduğu personeller
+    bagli_personeller = df_p[df_p['onayci_email'] == user['email']]['ad_soyad'].tolist()
 
-        bekleyenler = pd.read_sql_query("SELECT * FROM talepler WHERE durum='Beklemede'", conn)
-        filtreli = bekleyenler[bekleyenler['ad_soyad'].isin(bagli_personeller)]
+    # Bekleyen talepleri SQL'den çek
+    bekleyenler = pd.read_sql_query("SELECT * FROM talepler WHERE durum='Beklemede'", conn)
 
-        if filtreli.empty:
-            st.info("Şu an onayınızı bekleyen bir talep bulunmuyor.")
-        else:
-            for index, row in filtreli.iterrows():
-                with st.expander(f"📌 {row['ad_soyad']} - {row['tip']}"):
-                    st.write(f"**Tarih:** {row['baslangic'].strftime('%d/%m/%Y')} / "f"{row['bitis'].strftime('%d/%m/%Y')}")
-                    st.write(f"**Açıklama:** {row['neden']}")
+    # Sadece bağlı personelleri filtrele
+    filtreli = bekleyenler[bekleyenler['ad_soyad'].isin(bagli_personeller)]
 
-                    o_col, r_col = st.columns(2)
+    if filtreli.empty:
+        st.info("Şu an onayınızı bekleyen bir talep bulunmuyor.")
+    else:
+        # Tek tek talepleri göster
+        for index, row in filtreli.iterrows():
+            # Tarihleri datetime formatına çevir (son gönderdiğin yöntem)
+            bas = datetime.strptime(str(row['baslangic']), "%Y-%m-%d")
+            bit = datetime.strptime(str(row['bitis']), "%Y-%m-%d")
 
-                    if o_col.button("Onayla", key=f"on_{row['id']}"):
-                        imza = f"{user['ad_soyad']} ({user['meslek']}) tarafından {date.today()} tarihinde onaylandı."
-                        c.execute(
-                            "UPDATE talepler SET durum='Onaylandı', onay_notu=%s WHERE id=%s",
-                            (imza, row['id'])
-                        )
-                        conn.commit()
+            with st.expander(f"📌 {row['ad_soyad']} - {row['tip']}"):
+                st.write(f"**Tarih:** {bas.strftime('%d/%m/%Y')} / {bit.strftime('%d/%m/%Y')}")
+                st.write(f"**Açıklama:** {row['neden']}")
 
-                        p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
+                # Onay / Reddet kolonları
+                o_col, r_col = st.columns(2)
+
+                # Personelin e-posta adresini almak için fonksiyon
+                def get_email(ad_soyad):
+                    try:
+                        return df_p[df_p['ad_soyad'] == ad_soyad]['email'].values[0]
+                    except IndexError:
+                        return None
+
+                # Onayla butonu
+                if o_col.button("Onayla", key=f"on_{row['id']}"):
+                    imza = f"{user['ad_soyad']} ({user['meslek']}) tarafından {date.today()} tarihinde onaylandı."
+                    c.execute(
+                        "UPDATE talepler SET durum='Onaylandı', onay_notu=%s WHERE id=%s",
+                        (imza, row['id'])
+                    )
+                    conn.commit()
+
+                    p_email = get_email(row['ad_soyad'])
+                    if p_email:
                         mail_gonder(p_email, "İzniniz Onaylandı", f"Sayın {row['ad_soyad']}, izniniz onaylanmıştır.")
 
-                        st.rerun()
+                    st.experimental_rerun()
 
-                    if r_col.button("Reddet", key=f"red_{row['id']}"):
-                        c.execute("UPDATE talepler SET durum='Reddedildi' WHERE id=%s", (row['id'],))
-                        conn.commit()
+                # Reddet butonu
+                if r_col.button("Reddet", key=f"red_{row['id']}"):
+                    c.execute("UPDATE talepler SET durum='Reddedildi' WHERE id=%s", (row['id'],))
+                    conn.commit()
 
-                        p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
+                    p_email = get_email(row['ad_soyad'])
+                    if p_email:
                         mail_gonder(p_email, "İzniniz Reddedildi", f"Sayın {row['ad_soyad']}, izniniz reddedilmiştir.")
 
-                        st.rerun()
-
+                    st.experimental_rerun()
     # ---------------------------------------------------
     # İK GENEL TAKİP
     # ---------------------------------------------------
