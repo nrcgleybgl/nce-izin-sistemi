@@ -397,96 +397,97 @@ elif menu == "İzinlerim (Durum Takip)":
                     st.rerun()
 
             # ---------------------------------------------------
-            # 🖨️ ONAYLANAN İZİNLERİN PDF ÇIKTISI
-            # ---------------------------------------------------
-            st.markdown("---")
-            st.subheader("🖨️ Onaylanan İzinlerin PDF Çıktısı")
+# 🖨️ ONAYLANAN İZİNLERİN PDF ÇIKTISI
+# ---------------------------------------------------
+st.markdown("---")
+st.subheader("🖨️ Onaylanan İzinlerin PDF Çıktısı")
 
-            for index, row in kendi_izinlerim.iterrows():
-                if row['durum'] == "Onaylandı":
+for index, row in kendi_izinlerim.iterrows():
+    if row['durum'] == "Onaylandı":
 
-                    yonetici = ""
-                    onay_tarihi = ""
-                    if row["onay_notu"]:
-                        parts = row["onay_notu"].split()
-                        if "tarafından" in parts:
-                            idx = parts.index("tarafından")
-                            yonetici = " ".join(parts[:idx])
-                            if len(parts) > idx + 1:
-                                onay_tarihi = parts[idx + 1]
+        yonetici = ""
+        onay_tarihi = ""
+        if row["onay_notu"]:
+            parts = row["onay_notu"].split()
+            if "tarafından" in parts:
+                idx = parts.index("tarafından")
+                yonetici = " ".join(parts[:idx])
+                if len(parts) > idx + 1:
+                    onay_tarihi = parts[idx + 1]
 
-                    veri = {
-                        "ad_soyad": row["ad_soyad"],
-                        "sicil": user["sicil"],
-                        "departman": row["departman"],
-                        "meslek": row["meslek"],
-                        "telefon": user["cep_telefonu"],
-                        "email": user["email"],
-                        "tip": row["tip"],
-                        "baslangic": row["baslangic"],
-                        "bitis": row["bitis"],
-                        "neden": row["neden"],
-                        "durum": row["durum"],
-                        "yonetici": yonetici,
-                        "onay_tarihi": onay_tarihi
-                    }
+        veri = {
+            "ad_soyad": row["ad_soyad"],
+            "sicil": user["sicil"],
+            "departman": row["departman"],
+            "meslek": row["meslek"],
+            "telefon": user["cep_telefonu"],
+            "email": user["email"],
+            "tip": row["tip"],
+            "baslangic": row["baslangic"],
+            "bitis": row["bitis"],
+            "neden": row["neden"],
+            "durum": row["durum"],
+            "yonetici": yonetici,
+            "onay_tarihi": onay_tarihi
+        }
 
-                    pdf_bytes = pdf_olustur(veri)
+        pdf_bytes = pdf_olustur(veri)
 
-                    st.download_button(
-                        label=f"📥 {row['baslangic']} - {row['tip']} PDF İndir",
-                        data=pdf_bytes,
-                        file_name=f"{user['ad_soyad']}_{row['tip'].replace(' ', '_')}_{user['sicil']}.pdf",
-                        mime="application/pdf"
+        st.download_button(
+            label=f"📥 {row['baslangic']} - {row['tip']} PDF İndir",
+            data=pdf_bytes,
+            file_name=f"{user['ad_soyad']}_{row['tip'].replace(' ', '_')}_{user['sicil']}.pdf",
+            mime="application/pdf"
+        )
+
+# ---------------------------------------------------
+# YÖNETİCİ ONAY EKRANI
+# ---------------------------------------------------
+elif menu == "Onay Bekleyenler (Yönetici)":
+    st.header("⏳ Onayınızı Bekleyen Personel Talepleri")
+    df_p = veri_getir()
+
+    if "Ad Soyad" in df_p.columns:
+        df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
+
+    bagli_personeller = df_p[df_p['onayci_email'] == user['email']]['ad_soyad'].tolist()
+
+    bekleyenler = pd.read_sql_query("SELECT * FROM talepler WHERE durum='Beklemede'", conn)
+    filtreli = bekleyenler[bekleyenler['ad_soyad'].isin(bagli_personeller)]
+
+    if filtreli.empty:
+        st.info("Şu an onayınızı bekleyen bir talep bulunmuyor.")
+    else:
+        for index, row in filtreli.iterrows():
+            with st.expander(f"📌 {row['ad_soyad']} - {row['tip']}"):
+                st.write(f"**Tarih:** {row['baslangic']} / {row['bitis']}")
+                st.write(f"**Açıklama:** {row['neden']}")
+
+                o_col, r_col = st.columns(2)
+
+                if o_col.button("Onayla", key=f"on_{row['id']}"):
+                    imza = f"{user['ad_soyad']} ({user['meslek']}) tarafından {date.today()} tarihinde onaylandı."
+                    c.execute(
+                        "UPDATE talepler SET durum='Onaylandı', onay_notu=%s WHERE id=%s",
+                        (imza, row['id'])
                     )
-    # ---------------------------------------------------
-    # YÖNETİCİ ONAY EKRANI
-    # ---------------------------------------------------
-    elif menu == "Onay Bekleyenler (Yönetici)":
-        st.header("⏳ Onayınızı Bekleyen Personel Talepleri")
-        df_p = veri_getir()
+                    conn.commit()
 
-        if "Ad Soyad" in df_p.columns:
-            df_p.rename(columns={"Ad Soyad": "ad_soyad"}, inplace=True)
+                    p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
+                    mail_gonder(p_email, "İzniniz Onaylandı", f"Sayın {row['ad_soyad']}, izniniz onaylanmıştır.")
 
-        bagli_personeller = df_p[df_p['onayci_email'] == user['email']]['ad_soyad'].tolist()
+                    st.rerun()
 
-        bekleyenler = pd.read_sql_query("SELECT * FROM talepler WHERE durum='Beklemede'", conn)
-        filtreli = bekleyenler[bekleyenler['ad_soyad'].isin(bagli_personeller)]
+                if r_col.button("Reddet", key=f"red_{row['id']}"):
+                    c.execute("UPDATE talepler SET durum='Reddedildi' WHERE id=%s", (row['id'],))
+                    conn.commit()
 
-        if filtreli.empty:
-            st.info("Şu an onayınızı bekleyen bir talep bulunmuyor.")
-        else:
-            for index, row in filtreli.iterrows():
-                with st.expander(f"📌 {row['ad_soyad']} - {row['tip']}"):
-                    st.write(f"**Tarih:** {row['baslangic']} / {row['bitis']}")
-                    st.write(f"**Açıklama:** {row['neden']}")
+                    p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
+                    mail_gonder(p_email, "İzniniz Reddedildi", f"Sayın {row['ad_soyad']}, izniniz reddedilmiştir.")
 
-                    o_col, r_col = st.columns(2)
+                    st.rerun()
 
-                    if o_col.button("Onayla", key=f"on_{row['id']}"):
-                        imza = f"{user['ad_soyad']} ({user['meslek']}) tarafından {date.today()} tarihinde onaylandı."
-                        c.execute(
-                            "UPDATE talepler SET durum='Onaylandı', onay_notu=%s WHERE id=%s",
-                            (imza, row['id'])
-                        )
-                        conn.commit()
-
-                        p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
-                        mail_gonder(p_email, "İzniniz Onaylandı", f"Sayın {row['ad_soyad']}, izniniz onaylanmıştır.")
-
-                        st.rerun()
-
-                    if r_col.button("Reddet", key=f"red_{row['id']}"):
-                        c.execute("UPDATE talepler SET durum='Reddedildi' WHERE id=%s", (row['id'],))
-                        conn.commit()
-
-                        p_email = df_p[df_p['ad_soyad'] == row['ad_soyad']]['email'].values[0]
-                        mail_gonder(p_email, "İzniniz Reddedildi", f"Sayın {row['ad_soyad']}, izniniz reddedilmiştir.")
-
-                        st.rerun()
-
-    # ---------------------------------------------------
+# ---------------------------------------------------
 # İK GENEL TAKİP
 # ---------------------------------------------------
 elif menu == "Tüm Talepler (İK)":
