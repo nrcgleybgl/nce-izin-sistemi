@@ -323,42 +323,42 @@ if menu == "İzin Talep Formu":
             st.rerun()
 
     # ---------------------------------------------------
-    # İZİNLERİM (DÜZENLE / SİL + PDF)
-    # ---------------------------------------------------
-    elif menu == "İzinlerim (Durum Takip)":
-        st.header("📑 İzin Taleplerimin Son Durumu")
+# İZİNLERİM (DÜZENLE / SİL + PDF)
+# ---------------------------------------------------
+elif menu == "İzinlerim (Durum Takip)":
+    st.header("📑 İzin Taleplerimin Son Durumu")
 
-        kendi_izinlerim = pd.read_sql_query(
-            f"SELECT * FROM talepler WHERE ad_soyad='{user['ad_soyad']}' ORDER BY id DESC",
-            conn
-        )
+    kendi_izinlerim = pd.read_sql_query(
+        f"SELECT * FROM talepler WHERE ad_soyad='{user['ad_soyad']}' ORDER BY id DESC",
+        conn
+    )
 
-        if kendi_izinlerim.empty:
-            st.info("Henüz bir izin talebiniz bulunmuyor.")
-        else:
-            st.subheader("📋 İzin Listem")
+    if kendi_izinlerim.empty:
+        st.info("Henüz bir izin talebiniz bulunmuyor.")
+    else:
+        st.subheader("📋 İzin Listem")
 
-            for index, row in kendi_izinlerim.iterrows():
-                kutu = st.container()
-                with kutu:
-                    col1, col2, col3 = st.columns([4, 1, 1])
+        for index, row in kendi_izinlerim.iterrows():
+            kutu = st.container()
+            with kutu:
+                col1, col2, col3 = st.columns([4, 1, 1])
 
-                    col1.write(
-                        f"**{row['tip']}** — {tr_tarih(row['baslangic'])} → {tr_tarih(row['bitis'])}  \n"
-                        f"Durum: **{row['durum']}**"
-                    )
+                col1.write(
+                    f"**{row['tip']}** — {tr_tarih(row['baslangic'])} → {tr_tarih(row['bitis'])}  \n"
+                    f"Durum: **{row['durum']}**"
+                )
 
-                    # ❌ SİL BUTONU
-                    if col2.button("Sil", key=f"sil_{row['id']}"):
-                        c.execute("DELETE FROM talepler WHERE id=%s", (row['id'],))
-                        conn.commit()
-                        st.success("Talep silindi!")
-                        st.rerun()
+                # ❌ SİL BUTONU
+                if col2.button("Sil", key=f"sil_{row['id']}"):
+                    c.execute("DELETE FROM talepler WHERE id=%s", (row['id'],))
+                    conn.commit()
+                    st.success("Talep silindi!")
+                    st.rerun()
 
-                    # ✏️ DÜZENLE BUTONU
-                    if col3.button("Düzenle", key=f"duz_{row['id']}"):
-                        st.session_state["duzenlenecek_id"] = row["id"]
-                        st.rerun()
+                # ✏️ DÜZENLE BUTONU
+                if col3.button("Düzenle", key=f"duz_{row['id']}"):
+                    st.session_state["duzenlenecek_id"] = row["id"]
+                    st.rerun()
 
             # ---------------------------------------------------
             # ✏️ DÜZENLEME FORMU
