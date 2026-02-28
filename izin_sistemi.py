@@ -12,6 +12,14 @@ from fpdf import FPDF
 from dotenv import load_dotenv
 import os
 
+from datetime import datetime
+
+def tr_tarih(t):
+    try:
+        return datetime.strptime(t, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except:
+        return t
+
 load_dotenv()
 
 # ---------------------------------------------------
@@ -249,48 +257,70 @@ else:
         st.rerun()
 
     # ---------------------------------------------------
-    # İZİN TALEP FORMU
-    # ---------------------------------------------------
-    if menu == "İzin Talep Formu":
-        st.header("📝 Yeni İzin Talebi Oluştur")
+# İZİN TALEP FORMU
+# ---------------------------------------------------
+if menu == "İzin Talep Formu":
+    st.header("📝 Yeni İzin Talebi Oluştur")
 
-        izin_turleri = [
-            "Yıllık İzin", "Mazeret İzni", "Ücretsiz İzin", "Raporlu İzin",
-            "Doğum İzni", "Babalık İzni", "Evlenme İzni", "Cenaze İzni"
-        ]
+    izin_turleri = [
+        "Yıllık İzin", "Mazeret İzni", "Ücretsiz İzin", "Raporlu İzin",
+        "Doğum İzni", "Babalık İzni", "Evlenme İzni", "Cenaze İzni"
+    ]
 
-        with st.form("izin_formu"):
-            tip = st.selectbox("İzin Türü", izin_turleri)
-            baslangic = st.date_input("Başlangıç Tarihi", date.today())
-            bitis = st.date_input("Bitiş Tarihi", date.today())
-            neden = st.text_area("İzin Nedeni")
+    with st.form("izin_formu"):
+        tip = st.selectbox("İzin Türü", izin_turleri)
+        baslangic = st.date_input("Başlangıç Tarihi", date.today())
+        bitis = st.date_input("Bitiş Tarihi", date.today())
+        neden = st.text_area("İzin Nedeni")
 
-            if st.form_submit_button("Talebi Gönder"):
-                if bitis < baslangic:
-                    st.error("Bitiş tarihi başlangıç tarihinden önce olamaz.")
-                else:
-                    c.execute("""
-                        INSERT INTO talepler (ad_soyad, departman, meslek, tip, baslangic, bitis, neden, durum)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,'Beklemede')
-                    """, (
-                        user["ad_soyad"],
-                        user["departman"],
-                        user["meslek"],
-                        tip,
-                        str(baslangic),
-                        str(bitis),
-                        neden
-                    ))
-                    conn.commit()
+        if st.form_submit_button("Talebi Gönder"):
 
-                    mail_gonder(
-                        user["onayci_email"],
-                        "Yeni İzin Talebi",
-                        f"{user['ad_soyad']} tarafından yeni bir izin talebi oluşturuldu."
-                    )
+            # 🔒 1 YILLIK SINIR
+            if (bitis - baslangic).days > 365:
+                st.error("İzin süresi 1 yıldan uzun olamaz.")
+                st.stop()
 
-                    st.success("İzin talebiniz başarıyla gönderildi!")
-                    st.rerun()
+            # 🔒 TARİH KONTROLÜ
+            if bitis < baslangic:
+                st.error("Bitiş tarihi başlangıç tarihinden önce olamaz.")
+                st.stop()
+
+            # 🔒 MÜKERRER İZİN KONTROLÜ
+            c.execute("""
+                SELECT COUNT(*) FROM talepler
+                WHERE ad_soyad=%s AND baslangic=%s AND bitis=%s
+            """, (user["ad_soyad"], str(baslangic), str(bitis)))
+
+            var_mi = c.fetchone()[0]
+
+            if var_mi > 0:
+                st.error("Bu tarihlerde zaten bir izin talebiniz var.")
+                st.stop()
+
+            # 🔵 İZİN KAYDI
+            c.execute("""
+                INSERT INTO talepler (ad_soyad, departman, meslek, tip, baslangic, bitis, neden, durum)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,'Beklemede')
+            """, (
+                user["ad_soyad"],
+                user["departman"],
+                user["meslek"],
+                tip,
+                str(baslangic),
+                str(bitis),
+                neden
+            ))
+            conn.commit()
+
+            # 📧 MAİL
+            mail_gonder(
+                user["onayci_email"],
+                "Yeni İzin Talebi",
+                f"{user['ad_soyad']} tarafından yeni bir izin talebi oluşturuldu."
+            )
+
+            st.success("İzin talebiniz başarıyla gönderildi!")
+            st.rerun()
 
     # ---------------------------------------------------
     # İZİNLERİM (DÜZENLE / SİL + PDF)
@@ -314,7 +344,7 @@ else:
                     col1, col2, col3 = st.columns([4, 1, 1])
 
                     col1.write(
-                        f"**{row['tip']}** — {row['baslangic']} → {row['bitis']}  \n"
+                        f"**{row['tip']}** — {tr_tarih(row['baslangic'])} → {tr_tarih(row['bitis'])}  \n"
                         f"Durum: **{row['durum']}**"
                     )
 
@@ -406,7 +436,7 @@ else:
                     st.download_button(
                         label=f"📥 {row['baslangic']} - {row['tip']} PDF İndir",
                         data=pdf_bytes,
-                        file_name=f"izin_formu_{row['id']}.pdf",
+                        file_name=f"{user['ad_soyad']}_{row['tip'].replace(' ', '_')}_{user['sicil']}.pdf",
                         mime="application/pdf"
                     )
     # ---------------------------------------------------
@@ -457,20 +487,46 @@ else:
                         st.rerun()
 
     # ---------------------------------------------------
-    # İK GENEL TAKİP
+# İK GENEL TAKİP
+# ---------------------------------------------------
+elif menu == "Tüm Talepler (İK)":
+    st.header("📊 Şirket Geneli Tüm İzin Hareketleri")
+
+    df_all = pd.read_sql_query("SELECT * FROM talepler", conn)
+    st.dataframe(df_all, use_container_width=True)
+
+    st.download_button(
+        label="📥 Excel Olarak İndir",
+        data=excel_indir(df_all),
+        file_name="tum_talepler.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
     # ---------------------------------------------------
-    elif menu == "Tüm Talepler (İK)":
-        st.header("📊 Şirket Geneli Tüm İzin Hareketleri")
+    # TEK TEK SİLME
+    # ---------------------------------------------------
+    st.markdown("---")
+    st.subheader("Tekil İzin Sil")
 
-        df_all = pd.read_sql_query("SELECT * FROM talepler", conn)
-        st.dataframe(df_all, use_container_width=True)
+    sil_id = st.number_input("Silinecek izin ID", min_value=1, step=1)
 
-        st.download_button(
-            label="📥 Excel Olarak İndir",
-            data=excel_indir(df_all),
-            file_name="tum_talepler.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    if st.button("❌ Bu İzni Sil"):
+        c.execute("DELETE FROM talepler WHERE id=%s", (sil_id,))
+        conn.commit()
+        st.success(f"ID {sil_id} olan izin başarıyla silindi!")
+        st.rerun()
+
+    # ---------------------------------------------------
+    # TOPLU SİLME
+    # ---------------------------------------------------
+    st.markdown("---")
+    st.subheader("Toplu Silme İşlemleri")
+
+    if st.button("⚠️ Tüm İzin Taleplerini Sil"):
+        c.execute("DELETE FROM talepler")
+        conn.commit()
+        st.success("Tüm izin talepleri başarıyla silindi!")
+        st.rerun()
 
     # ---------------------------------------------------
     # PERSONEL YÖNETİMİ (İK)
