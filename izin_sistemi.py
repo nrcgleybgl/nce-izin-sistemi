@@ -471,12 +471,12 @@ else:
             file_name="tum_talepler.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-    sil_id = st.number_input("Silinecek izin ID", min_value=1, step=1)
-    if st.button("❌ Bu İzni Sil"):
-        c.execute("DELETE FROM talepler WHERE id=%s", (sil_id,))
-        conn.commit()
-        st.success("İzin silindi!")
-        st.rerun()
+        sil_id = st.number_input("Silinecek izin ID", min_value=1, step=1)
+        if st.button("❌ Bu İzni Sil"):
+            c.execute("DELETE FROM talepler WHERE id=%s", (sil_id,))
+            conn.commit()
+            st.success("İzin silindi!")
+            st.rerun()
 
     # ---------------------------------------------------
     # PERSONEL YÖNETİMİ (İK)
