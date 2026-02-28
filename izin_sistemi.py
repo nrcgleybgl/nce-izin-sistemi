@@ -477,6 +477,12 @@ else:
             conn.commit()
             st.success("İzin silindi!")
             st.rerun()
+        if st.button("⚠️ Tüm İzin Taleplerini Sil"):
+            c.execute("DELETE FROM talepler")
+            conn.commit()
+            st.success("Tüm izin talepleri silindi!")
+            st.rerun()
+    
 
     # ---------------------------------------------------
     # PERSONEL YÖNETİMİ (İK)
