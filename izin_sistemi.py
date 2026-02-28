@@ -365,7 +365,7 @@ else:
                     del st.session_state["duzenlenecek_id"]
                     st.success("Talep güncellendi!")
                     st.rerun()
-                if (bitis - baslangic).days>365;
+                if (bitis - baslangic).days>365:
                     st.error("İzin süresi 1 yıldan uzun olamaz")
                 else:
                     # mevcut INSERT işlemi
@@ -586,3 +586,4 @@ else:
 
             except Exception as e:
                 st.error(f"Excel içe aktarılırken hata: {e}")
+
