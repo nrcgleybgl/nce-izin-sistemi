@@ -429,7 +429,7 @@ else:
         else:
             for index, row in filtreli.iterrows():
                 with st.expander(f"📌 {row['ad_soyad']} - {row['tip']}"):
-                    st.write(f"**Tarih:** {row['baslangic']} / {row['bitis']}")
+                    st.write(f"**Tarih:** {row['baslangic'].strftime('%d/%m/%Y')} / "f"{row['bitis'].strftime('%d/%m/%Y')}")
                     st.write(f"**Açıklama:** {row['neden']}")
 
                     o_col, r_col = st.columns(2)
