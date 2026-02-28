@@ -323,6 +323,7 @@ else:
 # ---------------------------------------------------
 # ANA PANEL
 # ---------------------------------------------------
+
 else:
     user = st.session_state['user']
     rol = user.get('rol', 'Personel')
@@ -644,3 +645,4 @@ elif menu == "İzinlerim (Durum Takip)":
 
             except Exception as e:
                 st.error(f"Excel içe aktarılırken hata: {e}")
+
