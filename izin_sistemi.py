@@ -427,8 +427,8 @@ else:
                         "departman": user["departman"],
                         "meslek": user["meslek"],
                         "telefon": user["cep_telefonu"],
-                        "email": user["email"],
-                        "tip": row["tip"],
+                        "email": user["e-posta"],
+                        "tip": row["uç"],
                         "baslangic": row["baslangic"],
                         "bitis": row["bitis"],
                         "neden": row["neden"],
@@ -630,3 +630,4 @@ else:
 
             except Exception as e:
                 st.error(f"Excel içe aktarılırken hata: {e}")
+s
