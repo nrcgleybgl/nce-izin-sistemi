@@ -35,11 +35,7 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
     pdf.add_font("DejaVu", "B", "fonts/DejaVuSans-Bold.ttf", uni=True)
 
     # LOGO
-    try:
-        pdf.image(logo_path, x=80, y=10, w=50)
-    except:
-        pass
-
+    
     pdf.ln(35)
 
     # BAŞLIK
