@@ -436,7 +436,7 @@ else:
                         "yonetici": yonetici,
                         "onay_tarihi": onay_tarihi
                     }
-
+                    st.write("PDF VERİ:", veri)
                     pdf_bytes = pdf_olustur(veri)
 
                     st.download_button(
