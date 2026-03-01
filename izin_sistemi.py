@@ -51,7 +51,7 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
     def kutu_baslik(baslik):
         pdf.set_font("DejaVu", "B", 12)
         pdf.set_fill_color(230, 230, 230)
-        pdf.cell(190, 8, baslik, ln=True, fill=True)
+        pdf.cell(180, 8, baslik, ln=True, fill=True)
 
     # SATIR
     def satir(label, value):
@@ -84,14 +84,14 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
         neden_metin = "Belirtilmemiş"
     else:
         neden_metin = str(neden_metin)
-    pdf.multi_cell(130, 8, neden_metin, border=1)
+    pdf.multi_cell(120, 8, neden_metin, border=1)
     pdf.ln(5)
 
     # YÖNETİCİ ONAYI
     if veri["durum"] == "Onaylandı" and veri["yonetici"]:
         kutu_baslik("YÖNETİCİ ONAYI")
         metin = f"Bu izin, {veri['yonetici']} tarafından {veri['onay_tarihi']} tarihinde onaylanmıştır."
-        pdf.multi_cell(190, 8, metin, border=1)
+        pdf.multi_cell(180, 8, metin, border=1)
         pdf.ln(5)
 
     # İMZA ALANLARI
