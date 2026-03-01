@@ -233,6 +233,7 @@ else:
 
 st.cache_data.clear()
 ana_menu = ["İzin Talep Formu", "İzinlerim (Durum Takip)"]
+
 if rol in ["Yönetici", "İK"]:
     ana_menu.append("Onay Bekleyenler (Yönetici)")
 if rol == "İK":
