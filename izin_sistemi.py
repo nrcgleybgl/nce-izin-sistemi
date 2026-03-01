@@ -228,6 +228,7 @@ else:
     user = st.session_state['user']
     rol = user.get('rol', 'Personel')
 
+st.cache_data.clear()
     ana_menu = ["İzin Talep Formu", "İzinlerim (Durum Takip)"]
     if rol in ["Yönetici", "İK"]:
         ana_menu.append("Onay Bekleyenler (Yönetici)")
