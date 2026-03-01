@@ -48,8 +48,8 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
         pass
 
     pdf.ln(35)
-    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-    pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
+    pdf.add_font("DejaVu", "", "fonts/DejaVuSans.ttf", uni=True)
+    pdf.add_font("DejaVu", "B", "fonts/DejaVuSans-Bold.ttf", uni=True)
     pdf.set_font("DejaVu", "B", 18)
     pdf.set_font("Arial", 'B', 18)
     pdf.cell(0, 10, fix("IZIN TALEP FORMU"), ln=True, align='C')
