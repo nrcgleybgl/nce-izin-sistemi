@@ -424,7 +424,7 @@ else:
                         "tip": row["tip"],
                         "baslangic": row["baslangic"],
                         "bitis": row["bitis"],
-                        "neden": row["aciklama"],
+                        "neden": row["izin_nedeni"],
                         "durum": row["durum"],
                         "yonetici": yonetici,
                         "onay_tarihi": onay_tarihi
