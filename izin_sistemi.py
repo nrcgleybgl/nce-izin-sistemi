@@ -417,14 +417,14 @@ else:
                     veri = {
                         "ad_soyad": row["ad_soyad"],
                         "sicil": user["sicil"],
-                        "departman": row["departman"],
-                        "meslek": row["meslek"],
+                        "departman": user["departman"],
+                        "meslek": user["meslek"],
                         "telefon": user["cep_telefonu"],
                         "email": user["email"],
                         "tip": row["tip"],
                         "baslangic": row["baslangic"],
                         "bitis": row["bitis"],
-                        "neden": row["neden"],
+                        "neden": row["aciklama"],
                         "durum": row["durum"],
                         "yonetici": yonetici,
                         "onay_tarihi": onay_tarihi
