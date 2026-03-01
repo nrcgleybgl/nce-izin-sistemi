@@ -91,7 +91,7 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
     if veri["durum"] == "Onaylandı" and veri["yonetici"]:
         kutu_baslik("YÖNETİCİ ONAYI")
         metin = f"Bu izin, {veri['yonetici']} tarafından {veri['onay_tarihi']} tarihinde onaylanmıştır."
-        pdf.multi_cell(180, 8, metin, border=1)
+        pdf.multi_cell(190, 8, metin, border=1)
         pdf.ln(5)
 
     # İMZA ALANLARI
