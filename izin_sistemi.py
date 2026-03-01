@@ -35,7 +35,11 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
     pdf.add_font("DejaVu", "B", "fonts/DejaVuSans-Bold.ttf", uni=True)
 
     # LOGO
-    
+    try:
+        pdf.image(logo_path, x=80, y=10, w=50)
+    except:
+        pass
+
     pdf.ln(35)
 
     # BAŞLIK
@@ -95,7 +99,7 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
     pdf.cell(95, 10, "Personel İmzası", border=1, ln=False, align='C')
     pdf.cell(95, 10, "Yönetici İmzası", border=1, ln=True, align='C')
 
-    return pdf.output(dest='S').encode('utf-8')
+    return pdf.output(dest='S').encode('latin1')
 
 # ---------------------------------------------------
 # GMAIL SMTP (WEB UYUMLU - .env)
