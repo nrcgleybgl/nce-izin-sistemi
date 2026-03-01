@@ -76,7 +76,7 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
     satir("Bitiş Tarihi", veri["bitis"])
 
     pdf.set_font("DejaVu", "", 11)
-    pdf.cell(50, 8, "İzin Nedeni:", border=1)
+    pdf.cell(60, 8, "İzin Nedeni:", border=1)
     
     # Neden metni güvenli şekilde hazırlanıyor
     neden_metin = veri.get("neden")
@@ -84,7 +84,7 @@ def pdf_olustur(veri, logo_path="assets/logo.png"):
         neden_metin = "Belirtilmemiş"
     else:
         neden_metin = str(neden_metin)
-    pdf.multi_cell(180, 8, neden_metin, border=1)
+    pdf.multi_cell(130, 8, neden_metin, border=1)
     pdf.ln(5)
 
     # YÖNETİCİ ONAYI
@@ -436,7 +436,7 @@ else:
                         "yonetici": yonetici,
                         "onay_tarihi": onay_tarihi
                     }
-                    st.write("PDF VERİ:", veri)
+                    
                     pdf_bytes = pdf_olustur(veri)
 
                     st.download_button(
