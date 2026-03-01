@@ -231,27 +231,27 @@ else:
     user = st.session_state['user']
     rol = user.get('rol', 'Personel')
 
-st.cache_data.clear()
-ana_menu = ["İzin Talep Formu", "İzinlerim (Durum Takip)"]
+    st.cache_data.clear()
+    ana_menu = ["İzin Talep Formu", "İzinlerim (Durum Takip)"]
 
-if rol in ["Yönetici", "İK"]:
-    ana_menu.append("Onay Bekleyenler (Yönetici)")
-if rol == "İK":
-    ana_menu.append("Tüm Talepler (İK)")
-    ana_menu.append("Personel Yönetimi (İK)")
+    if rol in ["Yönetici", "İK"]:
+        ana_menu.append("Onay Bekleyenler (Yönetici)")
+    if rol == "İK":
+        ana_menu.append("Tüm Talepler (İK)")
+        ana_menu.append("Personel Yönetimi (İK)")
 
-st.sidebar.image("assets/logo.png", width=120)
-st.sidebar.title(f"👤 {user['ad_soyad']}")
-st.sidebar.write(f"**Rol:** {rol}")
-st.sidebar.write(f"**Departman:** {user['departman']}")
+    st.sidebar.image("assets/logo.png", width=120)
+    st.sidebar.title(f"👤 {user['ad_soyad']}")
+    st.sidebar.write(f"**Rol:** {rol}")
+    st.sidebar.write(f"**Departman:** {user['departman']}")
 
-menu = st.sidebar.radio("İşlem Menüsü", ana_menu)
+    menu = st.sidebar.radio("İşlem Menüsü", ana_menu)
 
-st.sidebar.markdown("---")
-if st.sidebar.button("🔒 Güvenli Çıkış"):
-    st.session_state['login_oldu'] = False
-    st.session_state['user'] = None
-    st.rerun()
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🔒 Güvenli Çıkış"):
+        st.session_state['login_oldu'] = False
+        st.session_state['user'] = None
+        st.rerun()
 
     # ---------------------------------------------------
     # İZİN TALEP FORMU
