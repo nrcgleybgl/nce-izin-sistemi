@@ -427,7 +427,7 @@ else:
                         "departman": user["departman"],
                         "meslek": user["meslek"],
                         "telefon": user["cep_telefonu"],
-                        "email": user["e-posta"],
+                        "email": user["email"],
                         "tip": row["uç"],
                         "baslangic": row["baslangic"],
                         "bitis": row["bitis"],
